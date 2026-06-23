@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Coins, ArrowRight, Database, Cloud, FileSpreadsheet, Smartphone, ShieldAlert } from 'lucide-react';
+import { loginWithSocial, isSupabaseConfigured } from '../services/supabase';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -19,6 +20,7 @@ interface Particle {
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const [isSigningIn, setIsSigningIn] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Generate randomized background bubbles once on mount to keep them stable during re-renders
@@ -178,6 +180,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
     }, 450); // Match CSS transition duration
   };
 
+  const handleGithubLogin = async () => {
+    try {
+      setIsSigningIn(true);
+      await loginWithSocial('github');
+      // Page will redirect to GitHub — spinner will show until that happens
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Login failed: ${message}`);
+      setIsSigningIn(false);
+    }
+  };
+
   const features = [
     {
       icon: <Database size={24} style={{ color: 'var(--gold-primary)' }} />,
@@ -308,17 +322,53 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         </p>
       </div>
 
-      {/* Main Entrance Button */}
+      {/* Main Entrance Buttons */}
       <div 
         style={{ 
           width: '100%', 
-          maxWidth: '280px', 
+          maxWidth: '320px', 
           marginBottom: '50px', 
           animation: 'fadeInUp 0.8s cubic-bezier(0.25, 0.8, 0.25, 1) 0.3s both',
           position: 'relative',
-          zIndex: 1
+          zIndex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
         }}
       >
+        {/* GitHub Sign-In (primary CTA when Supabase is configured) */}
+        {isSupabaseConfigured && (
+          <button 
+            className="landing-button"
+            onClick={handleGithubLogin}
+            disabled={isSigningIn}
+            style={{ 
+              width: '100%', 
+              borderRadius: '30px', 
+              padding: '16px 24px', 
+              fontSize: '16px',
+              fontWeight: '700',
+              border: '1.5px solid var(--gold-primary)',
+              background: 'linear-gradient(135deg, rgba(212,175,55,0.15) 0%, rgba(212,175,55,0.05) 100%)',
+              color: 'var(--gold-light)',
+              cursor: isSigningIn ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              boxShadow: 'var(--gold-glow)',
+              opacity: isSigningIn ? 0.7 : 1,
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            {isSigningIn 
+              ? <svg className="spinning" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" /></svg>
+              : <><svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/></svg> Sign In with GitHub <span style={{ fontSize: '11px', opacity: 0.7, marginLeft: 'auto' }}>CLOUD SYNC</span></>
+            }
+          </button>
+        )}
+
+        {/* Continue without signing in */}
         <button 
           className="btn-gold landing-button" 
           onClick={handleEnterClick}

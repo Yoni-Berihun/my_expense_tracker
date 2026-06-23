@@ -6,8 +6,18 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 export const isSupabaseConfigured = supabaseUrl !== '' && supabaseAnonKey !== '';
 
+// Use PKCE flow so the auth callback uses a code (query param) instead of
+// an implicit hash fragment (#access_token=...). This is more secure and
+// ensures proper redirects work in deployed environments.
 export const supabase = isSupabaseConfigured
-  ? createClient(supabaseUrl, supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+        persistSession: true,
+        autoRefreshToken: true,
+      }
+    })
   : null;
 
 if (!isSupabaseConfigured) {
@@ -25,7 +35,9 @@ export async function loginWithSocial(provider: 'google' | 'github') {
   const { error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: window.location.origin
+      // Use the deployed Vercel URL or fallback to current origin.
+      // The user MUST add this URL to "Redirect URLs" in Supabase dashboard.
+      redirectTo: window.location.origin,
     }
   });
 
