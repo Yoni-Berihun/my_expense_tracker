@@ -5,6 +5,22 @@ import { FileDown, Calendar, Tag, Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
+interface jsPDFWithAutoTable extends jsPDF {
+  autoTable: (options: {
+    startY?: number;
+    head: string[][];
+    body: (string | number)[][];
+    headStyles?: Record<string, unknown>;
+    alternateRowStyles?: Record<string, unknown>;
+    styles?: Record<string, unknown>;
+  }) => void;
+  lastAutoTable: {
+    finalY: number;
+  };
+}
+
+const getNowTimestamp = () => Date.now();
+
 export const ReportsScreen: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'week' | 'month' | 'last30' | 'custom'>('all');
@@ -12,19 +28,21 @@ export const ReportsScreen: React.FC = () => {
   const [customEnd, setCustomEnd] = useState<string>('');
 
   // Fetch local data
-  const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray()) || [];
-  const rawCategories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray()) || [];
+  const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray());
+  const rawCategories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray());
 
   // ID to name mapper
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
-    rawCategories.forEach(c => map.set(c.id, c.name));
+    const categories = rawCategories || [];
+    categories.forEach(c => map.set(c.id, c.name));
     return map;
   }, [rawCategories]);
 
   // Apply filters
   const filteredExpenses = useMemo(() => {
-    let list = [...rawExpenses];
+    const expenses = rawExpenses || [];
+    let list = [...expenses];
 
     // Category Filter
     if (categoryFilter !== 'all') {
@@ -73,7 +91,7 @@ export const ReportsScreen: React.FC = () => {
     if (window.confirm('Are you sure you want to delete this expense?')) {
       await db.expenses.update(id, {
         is_deleted: 1,
-        updated_at: Date.now(),
+        updated_at: getNowTimestamp(),
         synced: 0
       });
     }
@@ -113,7 +131,7 @@ export const ReportsScreen: React.FC = () => {
       return;
     }
 
-    const doc = new jsPDF();
+    const doc = new jsPDF() as jsPDFWithAutoTable;
     
     // Set VIP Dark Background for Title Header
     doc.setFillColor(10, 10, 10);
@@ -140,7 +158,7 @@ export const ReportsScreen: React.FC = () => {
     ]);
 
     // Autotable customization
-    (doc as any).autoTable({
+    doc.autoTable({
       startY: 48,
       head: [tableColumn],
       body: tableRows,
@@ -159,7 +177,7 @@ export const ReportsScreen: React.FC = () => {
     });
 
     // Add total row at the end
-    const finalY = (doc as any).lastAutoTable.finalY + 12;
+    const finalY = doc.lastAutoTable.finalY + 12;
     doc.setFontSize(12);
     doc.setTextColor(10, 10, 10);
     doc.text(`Total Spending: ${totalAmount.toFixed(2)} ETB`, 14, finalY);
@@ -186,7 +204,7 @@ export const ReportsScreen: React.FC = () => {
                 onChange={(e) => setCategoryFilter(e.target.value)}
               >
                 <option value="all">All Categories</option>
-                {rawCategories.map(c => (
+                {(rawCategories || []).map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
@@ -202,7 +220,7 @@ export const ReportsScreen: React.FC = () => {
                 className="form-select" 
                 style={{ width: '100%', paddingLeft: '38px' }}
                 value={dateRangeFilter}
-                onChange={(e) => setDateRangeFilter(e.target.value as any)}
+                onChange={(e) => setDateRangeFilter(e.target.value as typeof dateRangeFilter)}
               >
                 <option value="all">All Time</option>
                 <option value="week">Past Week</option>

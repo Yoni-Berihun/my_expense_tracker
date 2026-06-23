@@ -176,7 +176,7 @@ export function setupAutoSync(onStatusChange: (status: 'synced' | 'unsynced' | '
   // Initial check/sync
   getSyncStatus().then(status => {
     onStatusChange(status);
-    if (status === 'unsynced') {
+    if (status === 'unsynced' || status === 'synced') {
       syncData(onStatusChange);
     }
   });

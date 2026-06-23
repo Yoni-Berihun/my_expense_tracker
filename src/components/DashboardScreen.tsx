@@ -21,13 +21,14 @@ export const DashboardScreen: React.FC = () => {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string | null>(null);
 
   // Load all expenses & categories from Dexie
-  const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray()) || [];
-  const rawCategories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray()) || [];
+  const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray());
+  const rawCategories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray());
 
   // Create a mapping of category ID -> Name (normalized lowercase/capitalized)
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
-    rawCategories.forEach(c => {
+    const categories = rawCategories || [];
+    categories.forEach(c => {
       map.set(c.id, c.name);
     });
     return map;
@@ -35,6 +36,7 @@ export const DashboardScreen: React.FC = () => {
 
   // Filter expenses based on selected range
   const filteredExpenses = useMemo(() => {
+    const expenses = rawExpenses || [];
     const now = new Date();
     let startDate = new Date();
 
@@ -46,7 +48,7 @@ export const DashboardScreen: React.FC = () => {
       startDate = new Date(now.getFullYear(), now.getMonth(), 1);
     }
 
-    return rawExpenses.filter(e => new Date(e.date) >= startDate);
+    return expenses.filter(e => new Date(e.date) >= startDate);
   }, [rawExpenses, range]);
 
   // Calculate Key Stats
@@ -158,7 +160,8 @@ export const DashboardScreen: React.FC = () => {
   const GOLD_PALETTE = ['#D4AF37', '#F3E5AB', '#AA7C11', '#E5C158', '#906D0A', '#F9E7B9'];
 
   // Handle Pie Slice Click to Filter List
-  const handlePieSliceClick = (data: any) => {
+  const handlePieSliceClick = (data: { name?: string }) => {
+    if (!data.name) return;
     const catClicked = data.name.toLowerCase();
     if (selectedCategoryFilter === catClicked) {
       setSelectedCategoryFilter(null); // Toggle off

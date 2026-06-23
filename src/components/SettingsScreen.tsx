@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, loginWithSocial, logout, isSupabaseConfigured } from '../services/supabase';
 import { User, RefreshCw, Moon, Sun, ShieldAlert, LogOut, Check } from 'lucide-react';
+import { type User as SupabaseUser } from '@supabase/supabase-js';
 
 interface SettingsScreenProps {
   syncStatus: 'synced' | 'unsynced' | 'syncing' | 'offline';
@@ -8,10 +9,16 @@ interface SettingsScreenProps {
 }
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onForceSync }) => {
-  const [user, setUser] = useState<any>(null);
-  const [theme, setTheme] = useState<'dark' | 'light'>('dark');
-  const [remindersEnabled, setRemindersEnabled] = useState(false);
-  const [reminderTime, setReminderTime] = useState('20:00');
+  const [user, setUser] = useState<SupabaseUser | null>(null);
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    return (document.documentElement.getAttribute('data-theme') || 'dark') as 'dark' | 'light';
+  });
+  const [remindersEnabled, setRemindersEnabled] = useState<boolean>(() => {
+    return localStorage.getItem('reminders_enabled') === 'true';
+  });
+  const [reminderTime, setReminderTime] = useState<string>(() => {
+    return localStorage.getItem('reminder_time') || '20:00';
+  });
 
   // Listen to Supabase Auth State
   useEffect(() => {
@@ -26,18 +33,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
     });
 
     return () => subscription.unsubscribe();
-  }, []);
-
-  // Theme Initializer
-  useEffect(() => {
-    const activeTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-    setTheme(activeTheme as any);
-
-    // Load notification state
-    const savedReminders = localStorage.getItem('reminders_enabled') === 'true';
-    const savedTime = localStorage.getItem('reminder_time') || '20:00';
-    setRemindersEnabled(savedReminders);
-    setReminderTime(savedTime);
   }, []);
 
   const handleToggleTheme = () => {
@@ -76,8 +71,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
   const handleSocialLogin = async (provider: 'google' | 'github') => {
     try {
       await loginWithSocial(provider);
-    } catch (err: any) {
-      alert(`Login failed: ${err.message}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Login failed: ${message}`);
     }
   };
 

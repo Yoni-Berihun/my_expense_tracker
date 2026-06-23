@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
 import { getOrCreateCategory } from '../services/sync';
@@ -24,27 +24,24 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
   const [description, setDescription] = useState('');
   const [relativeDate, setRelativeDate] = useState<'today' | 'yesterday' | '2-days-ago'>('today');
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [filteredSuggestions, setFilteredSuggestions] = useState<string[]>([]);
   
   const amountRef = useRef<HTMLInputElement>(null);
 
   // Live queries for local categories
   const localCategories = useLiveQuery(() => 
     db.categories.where('is_deleted').equals(0).toArray()
-  ) || [];
+  );
 
   // Handle auto-suggest filtering
-  useEffect(() => {
+  const filteredSuggestions = useMemo(() => {
     if (categoryName.trim() === '') {
-      setFilteredSuggestions([]);
-      return;
+      return [];
     }
+    const categories = localCategories || [];
     const normalizedQuery = categoryName.trim().toLowerCase();
-    const matches = localCategories
+    return categories
       .map(c => c.name)
       .filter(name => name.includes(normalizedQuery) && !FIXED_CATEGORIES.some(f => f.name === name));
-    
-    setFilteredSuggestions(matches);
   }, [categoryName, localCategories]);
 
   // Focus amount input when modal opens
