@@ -303,7 +303,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         }}
       >
         <button 
-          className="btn-gold" 
+          className="btn-gold landing-button" 
           onClick={handleEnterClick}
           style={{ 
             width: '100%', 
@@ -334,7 +334,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         {features.map((feat, index) => (
           <div 
             key={index} 
-            className="glass-card" 
+            className="glass-card landing-card" 
             style={{ 
               display: 'flex', 
               alignItems: 'flex-start', 
@@ -356,6 +356,27 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
 
       {/* Animations Styling */}
       <style>{`
+        .landing-card {
+          position: relative;
+          z-index: 1;
+          transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border-color 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+          cursor: pointer;
+        }
+        .landing-card:hover {
+          transform: translateY(-4px) scale(1.02);
+          border-color: var(--gold-primary) !important;
+          box-shadow: 0 12px 30px rgba(0, 0, 0, 0.7), var(--gold-glow) !important;
+          background-color: rgba(212, 175, 55, 0.05) !important;
+        }
+        .landing-button {
+          position: relative;
+          z-index: 1;
+          transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), box-shadow 0.3s ease;
+        }
+        .landing-button:hover {
+          transform: translateY(-3px) scale(1.03);
+          box-shadow: var(--gold-glow-strong) !important;
+        }
         @keyframes floatUp {
           0% {
             transform: translateY(0) translateX(0) rotate(0deg);
