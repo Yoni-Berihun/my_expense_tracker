@@ -6,9 +6,10 @@ import { type User as SupabaseUser } from '@supabase/supabase-js';
 interface SettingsScreenProps {
   syncStatus: 'synced' | 'unsynced' | 'syncing' | 'offline';
   onForceSync: () => void;
+  onShowLanding: () => void;
 }
 
-export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onForceSync }) => {
+export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onForceSync, onShowLanding }) => {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     return (document.documentElement.getAttribute('data-theme') || 'dark') as 'dark' | 'light';
@@ -252,6 +253,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
             />
           </div>
         )}
+
+        {/* Welcome Screen review */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '14px', borderTop: '1px solid var(--border-glass)', marginTop: '14px' }}>
+          <div>
+            <p style={{ fontWeight: '600', fontSize: '14px' }}>Welcome Screen</p>
+            <span className="text-muted" style={{ fontSize: '11px' }}>Review the application features and setup guide</span>
+          </div>
+          <button 
+            onClick={onShowLanding}
+            style={{
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-glass)',
+              borderRadius: '20px',
+              padding: '6px 12px',
+              fontSize: '12px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              color: 'var(--gold-primary)'
+            }}
+          >
+            Show Info
+          </button>
+        </div>
       </div>
     </div>
   );

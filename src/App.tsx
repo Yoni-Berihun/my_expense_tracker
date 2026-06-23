@@ -3,6 +3,7 @@ import { LoggingScreen } from './components/LoggingScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { ReportsScreen } from './components/ReportsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { LandingPage } from './components/LandingPage';
 import { setupAutoSync, syncData } from './services/sync';
 import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw } from 'lucide-react';
 import './index.css';
@@ -10,6 +11,7 @@ import './index.css';
 function App() {
   const [activeTab, setActiveTab] = useState<'logging' | 'dashboard' | 'reports' | 'settings'>('logging');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'unsynced' | 'syncing' | 'offline'>('offline');
+  const [showLanding, setShowLanding] = useState<boolean>(() => localStorage.getItem('has_visited') === null);
 
   // Register Auto Sync
   useEffect(() => {
@@ -35,6 +37,17 @@ function App() {
     // Navigate to dashboard or refresh stats automatically
     setActiveTab('dashboard');
   };
+
+  if (showLanding) {
+    return (
+      <LandingPage
+        onEnter={() => {
+          localStorage.setItem('has_visited', 'true');
+          setShowLanding(false);
+        }}
+      />
+    );
+  }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
@@ -77,7 +90,13 @@ function App() {
         {activeTab === 'logging' && <LoggingScreen onSuccess={handleLoggingSuccess} />}
         {activeTab === 'dashboard' && <DashboardScreen />}
         {activeTab === 'reports' && <ReportsScreen />}
-        {activeTab === 'settings' && <SettingsScreen syncStatus={syncStatus} onForceSync={handleForceSync} />}
+        {activeTab === 'settings' && (
+          <SettingsScreen 
+            syncStatus={syncStatus} 
+            onForceSync={handleForceSync} 
+            onShowLanding={() => setShowLanding(true)} 
+          />
+        )}
       </main>
 
       {/* Bottom VIP Navigation Bar */}
