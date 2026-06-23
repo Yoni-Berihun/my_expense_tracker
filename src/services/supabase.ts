@@ -35,6 +35,25 @@ export async function loginWithSocial(provider: 'google' | 'github') {
   }
 }
 
+export async function loginWithEmail(email: string) {
+  if (!supabase) {
+    alert('Supabase is not configured yet. Email login is disabled in local-only mode.');
+    return;
+  }
+  
+  const { error } = await supabase.auth.signInWithOtp({
+    email,
+    options: {
+      emailRedirectTo: window.location.origin
+    }
+  });
+
+  if (error) {
+    console.error('Email Auth Error:', error.message);
+    throw error;
+  }
+}
+
 export async function logout() {
   if (supabase) {
     const { error } = await supabase.auth.signOut();

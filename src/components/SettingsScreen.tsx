@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, loginWithSocial, logout, isSupabaseConfigured } from '../services/supabase';
+import { supabase, loginWithSocial, loginWithEmail, logout, isSupabaseConfigured } from '../services/supabase';
 import { User, RefreshCw, Moon, Sun, ShieldAlert, LogOut, Check } from 'lucide-react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 
@@ -20,6 +20,10 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
   const [reminderTime, setReminderTime] = useState<string>(() => {
     return localStorage.getItem('reminder_time') || '20:00';
   });
+
+  const [email, setEmail] = useState('');
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
 
   // Listen to Supabase Auth State
   useEffect(() => {
@@ -78,6 +82,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
     }
   };
 
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+
+    setEmailLoading(true);
+    try {
+      await loginWithEmail(email.trim());
+      setEmailSent(true);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      alert(`Login failed: ${message}`);
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     if (window.confirm('Are you sure you want to sign out? Your local data cache will be cleared.')) {
       await logout();
@@ -127,13 +147,43 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ syncStatus, onFo
           </div>
         ) : (
           <div style={{ textAlign: 'center' }}>
-            <p className="text-muted" style={{ marginBottom: '16px' }}>Sign in with social providers to backup and synchronize your expense records.</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button className="btn-gold" style={{ width: '100%' }} onClick={() => handleSocialLogin('google')}>
-                Sign In with Google
+            <p className="text-muted" style={{ marginBottom: '16px' }}>Sign in to backup and synchronize your expense records.</p>
+            
+            {emailSent ? (
+              <div style={{ backgroundColor: 'rgba(212, 175, 55, 0.08)', border: '1px solid var(--border-gold)', borderRadius: '8px', padding: '16px', marginBottom: '16px', color: 'var(--gold-light)' }}>
+                <p style={{ fontWeight: 'bold', margin: '0 0 6px 0' }}>Verification Link Sent</p>
+                <p style={{ fontSize: '13px', margin: 0, color: 'var(--text-muted)' }}>We sent a magic login link to <strong>{email}</strong>. Please check your inbox and click the link to log in.</p>
+              </div>
+            ) : (
+              <form onSubmit={handleEmailLogin} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+                <input
+                  type="email"
+                  placeholder="Enter your email address"
+                  className="form-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                  disabled={emailLoading}
+                  style={{ textAlign: 'center' }}
+                />
+                <button type="submit" className="btn-gold" style={{ width: '100%' }} disabled={emailLoading}>
+                  {emailLoading ? 'Sending link...' : 'Send Magic Login Link'}
+                </button>
+              </form>
+            )}
+
+            <div style={{ display: 'flex', alignItems: 'center', margin: '15px 0' }}>
+              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-glass)' }} />
+              <span className="text-muted" style={{ padding: '0 10px', fontSize: '11px', textTransform: 'uppercase' }}>Or Sign In With</span>
+              <hr style={{ flex: 1, border: 'none', borderTop: '1px solid var(--border-glass)' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => handleSocialLogin('google')}>
+                Google
               </button>
-              <button className="btn-outline" style={{ width: '100%' }} onClick={() => handleSocialLogin('github')}>
-                Sign In with GitHub
+              <button className="btn-outline" style={{ flex: 1 }} onClick={() => handleSocialLogin('github')}>
+                GitHub
               </button>
             </div>
           </div>
