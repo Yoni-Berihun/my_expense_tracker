@@ -1,12 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Coins, ArrowRight, Database, Cloud, FileSpreadsheet, Smartphone } from 'lucide-react';
 
 interface LandingPageProps {
   onEnter: () => void;
 }
 
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  size: number;
+  alpha: number;
+  decay: number;
+}
+
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
   const [isExiting, setIsExiting] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Generate randomized background bubbles once on mount to keep them stable during re-renders
   const [backgroundBubbles] = useState(() => {
@@ -34,6 +45,111 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
       };
     });
   });
+
+  // Antigravity Canvas-based interactive cursor particles trail
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationFrameId: number;
+    let width = (canvas.width = window.innerWidth);
+    let height = (canvas.height = window.innerHeight);
+
+    const handleResize = () => {
+      if (!canvas) return;
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+    };
+    window.addEventListener('resize', handleResize);
+
+    const particles: Particle[] = [];
+    const mouse = { x: -9999, y: -9999, active: false };
+
+    const handleMouseMoveGlobal = (e: MouseEvent) => {
+      mouse.x = e.clientX;
+      mouse.y = e.clientY;
+      mouse.active = true;
+
+      // Spawn gold spark particles on mouse movement
+      for (let i = 0; i < 2; i++) {
+        particles.push({
+          x: mouse.x,
+          y: mouse.y,
+          vx: (Math.random() - 0.5) * 1.5,
+          vy: (Math.random() - 0.5) * 1.5 - 0.5, // drift upwards
+          size: Math.random() * 3 + 1.5, // 1.5px to 4.5px
+          alpha: 1,
+          decay: Math.random() * 0.015 + 0.015
+        });
+      }
+    };
+
+    const handleMouseLeave = () => {
+      mouse.active = false;
+    };
+
+    window.addEventListener('mousemove', handleMouseMoveGlobal);
+    document.addEventListener('mouseleave', handleMouseLeave);
+
+    const draw = () => {
+      ctx.clearRect(0, 0, width, height);
+
+      // 1. Draw mouse soft glowing background aura
+      if (mouse.active) {
+        const gradient = ctx.createRadialGradient(
+          mouse.x,
+          mouse.y,
+          0,
+          mouse.x,
+          mouse.y,
+          180
+        );
+        gradient.addColorStop(0, 'rgba(212, 175, 55, 0.05)');
+        gradient.addColorStop(1, 'rgba(212, 175, 55, 0)');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(mouse.x, mouse.y, 180, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 2. Draw & update particles
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.vy -= 0.012; // antigravity effect: float upwards
+        p.alpha -= p.decay;
+
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+
+        ctx.save();
+        ctx.globalAlpha = p.alpha;
+        ctx.fillStyle = '#D4AF37'; // gold-primary
+        ctx.shadowBlur = 8;
+        ctx.shadowColor = 'rgba(212, 175, 55, 0.8)';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+      }
+
+      animationFrameId = requestAnimationFrame(draw);
+    };
+
+    draw();
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('mousemove', handleMouseMoveGlobal);
+      document.removeEventListener('mouseleave', handleMouseLeave);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   const handleEnterClick = () => {
     if (navigator.vibrate) {
@@ -88,6 +204,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         overflow: 'hidden'
       }}
     >
+      {/* Interactive Cursor Antigravity Particles Canvas Layer */}
+      <canvas
+        ref={canvasRef}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '100%',
+          height: '100%',
+          pointerEvents: 'none',
+          zIndex: 0
+        }}
+      />
+
       {/* Background Floating Bubbles */}
       <div 
         style={{ 
