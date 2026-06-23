@@ -8,6 +8,7 @@ import { setupAutoSync, syncData } from './services/sync';
 import { supabase, isSupabaseConfigured } from './services/supabase';
 import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User } from 'lucide-react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
+import { PWAInstallBanner } from './components/PWAInstallBanner';
 import './index.css';
 
 function App() {
@@ -218,6 +219,9 @@ function App() {
           </button>
         </div>
       </nav>
+
+      {/* PWA Install Prompt Banner */}
+      <PWAInstallBanner />
     </div>
   );
 }
