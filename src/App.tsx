@@ -6,17 +6,22 @@ import { SettingsScreen } from './components/SettingsScreen';
 import { LandingPage } from './components/LandingPage';
 import { setupAutoSync, syncData } from './services/sync';
 import { supabase, isSupabaseConfigured } from './services/supabase';
-import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User } from 'lucide-react';
+import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User, Shield } from 'lucide-react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { CreatorCard } from './components/CreatorCard';
+import { CapacityFullScreen } from './components/CapacityFullScreen';
+import { AdminPanelScreen } from './components/AdminPanelScreen';
 import './index.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'logging' | 'dashboard' | 'reports' | 'settings'>('logging');
+  const [activeTab, setActiveTab] = useState<'logging' | 'dashboard' | 'reports' | 'settings' | 'admin'>('logging');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'unsynced' | 'syncing' | 'offline'>('offline');
   const [showLanding, setShowLanding] = useState<boolean>(() => localStorage.getItem('has_visited') === null);
   const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  const isAdmin = currentUser?.email === 'yonatanberihun1998@gmail.com';
 
   // Listen for Supabase auth state changes globally
   useEffect(() => {
@@ -32,7 +37,7 @@ function App() {
       }
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       const user = session?.user ?? null;
       setCurrentUser(user);
 
@@ -41,14 +46,35 @@ function App() {
         setShowLanding(false);
         localStorage.setItem('has_visited', 'true');
 
-        // Trigger an immediate sync after sign-in
         if (event === 'SIGNED_IN') {
+          // Check 5-user cap via Supabase RPC
+          try {
+            const { data: hasAccess, error } = await supabase!.rpc('check_and_grant_access', {
+              p_user_id: user.id,
+              p_email: user.email ?? '',
+            });
+            if (error) throw error;
+            if (!hasAccess) {
+              // Slots full — sign them out and show the capacity screen
+              setAccessDenied(true);
+              await supabase!.auth.signOut();
+              return;
+            }
+          } catch (err) {
+            console.error('Access check failed:', err);
+            // On error: fail open (let user in) so a DB issue doesn't lock everyone out
+          }
           syncData(setSyncStatus);
         }
       }
 
       if (event === 'SIGNED_OUT') {
         setCurrentUser(null);
+      }
+
+      if (event === 'SIGNED_OUT' && !accessDenied) {
+        // Normal sign-out: go back to landing
+        setShowLanding(true);
       }
     });
 
@@ -63,7 +89,7 @@ function App() {
     return cleanup;
   }, []);
 
-  const handleTabChange = (tab: 'logging' | 'dashboard' | 'reports' | 'settings') => {
+  const handleTabChange = (tab: 'logging' | 'dashboard' | 'reports' | 'settings' | 'admin') => {
     setActiveTab(tab);
     if (navigator.vibrate) {
       navigator.vibrate(10); // Subtle tick vibration on touch
@@ -79,6 +105,18 @@ function App() {
     // Navigate to dashboard or refresh stats automatically
     setActiveTab('dashboard');
   };
+
+  // Capacity full — show premium denial screen
+  if (accessDenied) {
+    return (
+      <CapacityFullScreen
+        onSignOut={() => {
+          setAccessDenied(false);
+          setShowLanding(true);
+        }}
+      />
+    );
+  }
 
   if (showLanding) {
     return (
@@ -182,6 +220,7 @@ function App() {
             onShowLanding={() => setShowLanding(true)} 
           />
         )}
+        {activeTab === 'admin' && isAdmin && <AdminPanelScreen />}
       </main>
 
       {/* Bottom VIP Navigation Bar */}
@@ -190,6 +229,7 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'logging' ? 'active' : ''}`}
             onClick={() => handleTabChange('logging')}
+            style={{ width: isAdmin ? '20%' : '25%' }}
           >
             <PlusCircle />
             <span>Log</span>
@@ -198,6 +238,7 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
+            style={{ width: isAdmin ? '20%' : '25%' }}
           >
             <BarChart3 />
             <span>Dashboard</span>
@@ -206,6 +247,7 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
             onClick={() => handleTabChange('reports')}
+            style={{ width: isAdmin ? '20%' : '25%' }}
           >
             <FileText />
             <span>Reports</span>
@@ -214,10 +256,22 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabChange('settings')}
+            style={{ width: isAdmin ? '20%' : '25%' }}
           >
             <Settings />
             <span>Settings</span>
           </button>
+
+          {isAdmin && (
+            <button 
+              className={`nav-item ${activeTab === 'admin' ? 'active' : ''}`}
+              onClick={() => handleTabChange('admin')}
+              style={{ width: isAdmin ? '20%' : '25%' }}
+            >
+              <Shield />
+              <span>Admin</span>
+            </button>
+          )}
         </div>
       </nav>
 
