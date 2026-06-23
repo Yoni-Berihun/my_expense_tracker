@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from './services/supabase';
 import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User } from 'lucide-react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
+import { CreatorCard } from './components/CreatorCard';
 import './index.css';
 
 function App() {
@@ -222,6 +223,9 @@ function App() {
 
       {/* PWA Install Prompt Banner */}
       <PWAInstallBanner />
+
+      {/* Creator floating card */}
+      <CreatorCard />
     </div>
   );
 }
