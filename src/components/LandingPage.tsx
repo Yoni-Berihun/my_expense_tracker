@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Coins, ArrowRight, Database, Cloud, FileSpreadsheet, Smartphone } from 'lucide-react';
+import { Coins, ArrowRight, Database, Cloud, FileSpreadsheet, Smartphone, ShieldAlert } from 'lucide-react';
 
 interface LandingPageProps {
   onEnter: () => void;
@@ -13,6 +13,8 @@ interface Particle {
   size: number;
   alpha: number;
   decay: number;
+  phase: number;
+  waveSpeed: number;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
@@ -66,22 +68,25 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
 
     const particles: Particle[] = [];
     const mouse = { x: -9999, y: -9999, active: false };
+    const glow = { x: -9999, y: -9999 };
 
     const handleMouseMoveGlobal = (e: MouseEvent) => {
       mouse.x = e.clientX;
       mouse.y = e.clientY;
       mouse.active = true;
 
-      // Spawn gold spark particles on mouse movement
+      // Spawn gold stardust particles on mouse movement
       for (let i = 0; i < 2; i++) {
         particles.push({
           x: mouse.x,
           y: mouse.y,
-          vx: (Math.random() - 0.5) * 1.5,
-          vy: (Math.random() - 0.5) * 1.5 - 0.5, // drift upwards
-          size: Math.random() * 3 + 1.5, // 1.5px to 4.5px
+          vx: (Math.random() - 0.5) * 1.2,
+          vy: (Math.random() - 0.5) * 1.2 - 0.8, // drift upwards
+          size: Math.random() * 4 + 1.5, // 1.5px to 5.5px stardust sizes
           alpha: 1,
-          decay: Math.random() * 0.015 + 0.015
+          decay: Math.random() * 0.01 + 0.01, // slower decay for longer tails
+          phase: Math.random() * Math.PI * 2,
+          waveSpeed: Math.random() * 0.04 + 0.02
         });
       }
     };
@@ -96,30 +101,42 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
     const draw = () => {
       ctx.clearRect(0, 0, width, height);
 
-      // 1. Draw mouse soft glowing background aura
+      // 1. Draw mouse soft glowing background aura with lag-damping inertia
       if (mouse.active) {
+        if (glow.x === -9999) {
+          glow.x = mouse.x;
+          glow.y = mouse.y;
+        } else {
+          glow.x += (mouse.x - glow.x) * 0.08;
+          glow.y += (mouse.y - glow.y) * 0.08;
+        }
+
         const gradient = ctx.createRadialGradient(
-          mouse.x,
-          mouse.y,
+          glow.x,
+          glow.y,
           0,
-          mouse.x,
-          mouse.y,
-          180
+          glow.x,
+          glow.y,
+          220
         );
-        gradient.addColorStop(0, 'rgba(212, 175, 55, 0.05)');
+        gradient.addColorStop(0, 'rgba(212, 175, 55, 0.07)');
         gradient.addColorStop(1, 'rgba(212, 175, 55, 0)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(mouse.x, mouse.y, 180, 0, Math.PI * 2);
+        ctx.arc(glow.x, glow.y, 220, 0, Math.PI * 2);
         ctx.fill();
+      } else {
+        glow.x = -9999;
+        glow.y = -9999;
       }
 
-      // 2. Draw & update particles
+      // 2. Draw & update stardust particles
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
-        p.x += p.vx;
+        p.phase += p.waveSpeed;
+        p.x += p.vx + Math.sin(p.phase) * 0.5; // side-to-side sine drift wave
         p.y += p.vy;
-        p.vy -= 0.012; // antigravity effect: float upwards
+        p.vy -= 0.015; // float upwards (antigravity)
         p.alpha -= p.decay;
 
         if (p.alpha <= 0) {
@@ -130,8 +147,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         ctx.save();
         ctx.globalAlpha = p.alpha;
         ctx.fillStyle = '#D4AF37'; // gold-primary
-        ctx.shadowBlur = 8;
-        ctx.shadowColor = 'rgba(212, 175, 55, 0.8)';
+        ctx.shadowBlur = 12;
+        ctx.shadowColor = 'rgba(212, 175, 55, 0.9)';
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
         ctx.fill();
@@ -352,6 +369,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
             </div>
           </div>
         ))}
+
+        {/* Local Storage Data Persistence Notice */}
+        <div 
+          className="glass-card" 
+          style={{ 
+            width: '100%', 
+            border: '1px dashed rgba(212, 175, 55, 0.35)', 
+            background: 'rgba(212, 175, 55, 0.02)', 
+            textAlign: 'left', 
+            padding: '16px', 
+            borderRadius: 'var(--radius-md)', 
+            margin: '8px 0 0 0', 
+            display: 'flex', 
+            gap: '12px', 
+            alignItems: 'center',
+            boxShadow: 'none'
+          }}
+        >
+          <ShieldAlert size={28} style={{ color: 'var(--gold-primary)', flexShrink: 0 }} />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <p style={{ margin: 0, fontSize: '13px', fontWeight: '700', color: 'var(--gold-light)' }}>
+              Data Persistence Notice
+            </p>
+            <p className="text-muted" style={{ margin: 0, fontSize: '11px', lineHeight: '1.4' }}>
+              By default, expenses are only stored in your browser's local cache. To ensure your ledger is saved permanently and accessible across all devices, sign in with GitHub.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Animations Styling */}
