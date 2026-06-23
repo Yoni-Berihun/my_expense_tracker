@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import { Coins, ArrowRight, Database, Cloud, FileSpreadsheet, Smartphone } from 'lucide-react';
 
 interface LandingPageProps {
@@ -9,7 +9,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
   const [isExiting, setIsExiting] = useState(false);
 
   // Generate randomized background bubbles once on mount to keep them stable during re-renders
-  const backgroundBubbles = useMemo(() => {
+  const [backgroundBubbles] = useState(() => {
     return Array.from({ length: 15 }).map((_, i) => {
       const size = Math.floor(Math.random() * 120) + 40; // 40px to 160px
       const left = Math.floor(Math.random() * 100); // 0% to 100%
@@ -33,7 +33,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onEnter }) => {
         }
       };
     });
-  }, []);
+  });
 
   const handleEnterClick = () => {
     if (navigator.vibrate) {
