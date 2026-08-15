@@ -2,11 +2,19 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
 import { getOrCreateCategory } from '../services/sync';
-import { Plus, X, Tag, FileText, Check, Wallet } from 'lucide-react';
+import { Plus, X, Tag, FileText, Check, Wallet, Calendar } from 'lucide-react';
 
 interface LoggingScreenProps {
   onSuccess: () => void;
 }
+
+// Returns YYYY-MM-DD in the user's LOCAL timezone (not UTC, to avoid day shifts)
+const getLocalDateStr = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
 
 const FIXED_CATEGORIES = [
   { name: 'food', icon: '🍔' },
@@ -22,7 +30,7 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
   const [amount, setAmount] = useState('');
   const [categoryName, setCategoryName] = useState('');
   const [description, setDescription] = useState('');
-  const [relativeDate, setRelativeDate] = useState<'today' | 'yesterday' | '2-days-ago'>('today');
+  const [dateStr, setDateStr] = useState<string>(() => getLocalDateStr());
   const [showSuggestions, setShowSuggestions] = useState(false);
   
   const amountRef = useRef<HTMLInputElement>(null);
@@ -66,7 +74,7 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
     setAmount('');
     setCategoryName('');
     setDescription('');
-    setRelativeDate('today');
+    setDateStr(getLocalDateStr());
   };
 
   const handleSelectFixedCategory = (catName: string) => {
@@ -88,13 +96,24 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
       // 1. Get or create category
       const categoryId = await getOrCreateCategory(finalCategory);
 
-      // 2. Determine target date
-      const targetDate = new Date();
-      if (relativeDate === 'yesterday') {
-        targetDate.setDate(targetDate.getDate() - 1);
-      } else if (relativeDate === '2-days-ago') {
-        targetDate.setDate(targetDate.getDate() - 2);
+      // 2. Determine target date from the selected calendar day.
+      //    Combine the chosen day with the current time-of-day so records keep a
+      //    sensible chronological ordering, and build it in LOCAL time to avoid
+      //    UTC day-shift bugs.
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!y || !m || !d) {
+        alert('Please select a valid date.');
+        return;
       }
+      const now = new Date();
+      const targetDate = new Date(
+        y,
+        m - 1,
+        d,
+        now.getHours(),
+        now.getMinutes(),
+        now.getSeconds()
+      );
 
       // 3. Add expense to local Dexie DB
       const newExpense = {
@@ -254,31 +273,41 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
               )}
             </div>
 
-            {/* Past Day relative selectors */}
+            {/* Transaction Date: quick shortcuts + full calendar picker */}
             <div className="form-group">
               <label className="form-label">Transaction Date</label>
               <div className="chip-container">
                 <button
                   type="button"
-                  className={`chip ${relativeDate === 'today' ? 'active' : ''}`}
-                  onClick={() => setRelativeDate('today')}
+                  className={`chip ${dateStr === getLocalDateStr() ? 'active' : ''}`}
+                  onClick={() => setDateStr(getLocalDateStr())}
                 >
                   Today
                 </button>
                 <button
                   type="button"
-                  className={`chip ${relativeDate === 'yesterday' ? 'active' : ''}`}
-                  onClick={() => setRelativeDate('yesterday')}
+                  className={`chip ${dateStr === getLocalDateStr(new Date(Date.now() - 864e5)) ? 'active' : ''}`}
+                  onClick={() => setDateStr(getLocalDateStr(new Date(Date.now() - 864e5)))}
                 >
                   Yesterday
                 </button>
-                <button
-                  type="button"
-                  className={`chip ${relativeDate === '2-days-ago' ? 'active' : ''}`}
-                  onClick={() => setRelativeDate('2-days-ago')}
-                >
-                  2 Days Ago
-                </button>
+              </div>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+                <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)', pointerEvents: 'none' }}>
+                  <Calendar size={16} />
+                </span>
+                <input
+                  type="date"
+                  className="form-input"
+                  style={{ width: '100%', paddingLeft: '38px', colorScheme: 'dark' }}
+                  value={dateStr}
+                  max={getLocalDateStr()}
+                  onChange={(e) => {
+                    // Ignore clearing; keep a valid day selected
+                    if (e.target.value) setDateStr(e.target.value);
+                  }}
+                  required
+                />
               </div>
             </div>
 

@@ -1,7 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
-import { FileDown, Calendar, Tag, Trash2 } from 'lucide-react';
+import { FileDown, Calendar, Tag, Trash2, Pencil, X, Check } from 'lucide-react';
+import type { LocalExpense } from '../services/db';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
@@ -21,11 +22,25 @@ interface jsPDFWithAutoTable extends jsPDF {
 
 const getNowTimestamp = () => Date.now();
 
+// Returns YYYY-MM-DD in the user's LOCAL timezone (avoids UTC day-shift)
+const getLocalDateStr = (d: Date = new Date()): string => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
 export const ReportsScreen: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'week' | 'month' | 'last30' | 'custom'>('all');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
+
+  // Inline edit modal state
+  const [editing, setEditing] = useState<LocalExpense | null>(null);
+  const [editAmount, setEditAmount] = useState<string>('');
+  const [editDate, setEditDate] = useState<string>('');
+  const [editNote, setEditNote] = useState<string>('');
 
   // Fetch local data
   const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray());
@@ -85,6 +100,54 @@ export const ReportsScreen: React.FC = () => {
   const totalAmount = useMemo(() => {
     return filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
   }, [filteredExpenses]);
+
+  // Open the edit modal, prefilling fields from the selected expense
+  const handleOpenEdit = (exp: LocalExpense) => {
+    setEditing(exp);
+    setEditAmount(String(exp.amount));
+    setEditDate(getLocalDateStr(new Date(exp.date)));
+    setEditNote(exp.description || '');
+  };
+
+  const handleCloseEdit = () => {
+    setEditing(null);
+    setEditAmount('');
+    setEditDate('');
+    setEditNote('');
+  };
+
+  // Persist edits to amount / date / note. Only these fields change; id,
+  // category and created_at are preserved, and synced:0 re-queues the row.
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+
+    const parsedAmount = parseFloat(editAmount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      alert('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    const [y, m, d] = editDate.split('-').map(Number);
+    if (!y || !m || !d) {
+      alert('Please select a valid date.');
+      return;
+    }
+
+    // Keep the original time-of-day so chronological ordering is preserved.
+    const orig = new Date(editing.date);
+    const newDate = new Date(y, m - 1, d, orig.getHours(), orig.getMinutes(), orig.getSeconds());
+
+    await db.expenses.update(editing.id, {
+      amount: parsedAmount,
+      date: newDate.toISOString(),
+      description: editNote.trim(),
+      updated_at: getNowTimestamp(),
+      synced: 0
+    });
+
+    handleCloseEdit();
+  };
 
   // Soft delete handler
   const handleDeleteExpense = async (id: string) => {
@@ -292,7 +355,7 @@ export const ReportsScreen: React.FC = () => {
                   <th>Category</th>
                   <th>Note</th>
                   <th style={{ textAlign: 'right' }}>Amount</th>
-                  <th style={{ textAlign: 'center', width: '40px' }}>Actions</th>
+                  <th style={{ textAlign: 'center', width: '70px' }}>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -310,9 +373,16 @@ export const ReportsScreen: React.FC = () => {
                     <td style={{ textAlign: 'right', fontWeight: 'bold', color: 'var(--gold-light)', whiteSpace: 'nowrap' }}>
                       {exp.amount.toFixed(2)} ETB
                     </td>
-                    <td style={{ textAlign: 'center' }}>
-                      <button 
-                        onClick={() => handleDeleteExpense(exp.id)} 
+                    <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                      <button
+                        onClick={() => handleOpenEdit(exp)}
+                        style={{ background: 'none', border: 'none', color: 'var(--gold-primary)', cursor: 'pointer', opacity: 0.8, padding: '4px' }}
+                        title="Edit"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteExpense(exp.id)}
                         style={{ background: 'none', border: 'none', color: '#ff4d4d', cursor: 'pointer', opacity: 0.7, padding: '4px' }}
                         title="Delete"
                       >
@@ -325,6 +395,88 @@ export const ReportsScreen: React.FC = () => {
             </table>
           </div>
         )}
+      </div>
+
+      {/* Edit Expense Modal */}
+      <div className={`modal-overlay ${editing ? 'open' : ''}`} onClick={handleCloseEdit}>
+        <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+          <div className="modal-header">
+            <h3 style={{ fontSize: '20px', background: 'var(--gold-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Edit Expense
+            </h3>
+            <button className="modal-close" onClick={handleCloseEdit}>
+              <X size={24} />
+            </button>
+          </div>
+
+          {editing && (
+            <form onSubmit={handleSaveEdit}>
+              {/* Amount */}
+              <div className="form-group" style={{ textAlign: 'center', marginBottom: '25px' }}>
+                <label className="form-label" style={{ textAlign: 'center' }}>Amount (ETB)</label>
+                <div style={{ position: 'relative', display: 'inline-block', margin: '0 auto', width: '100%', maxWidth: '240px' }}>
+                  <input
+                    type="number"
+                    step="any"
+                    placeholder="0.00"
+                    className="form-input"
+                    style={{
+                      fontSize: '36px',
+                      fontWeight: '800',
+                      textAlign: 'center',
+                      color: 'var(--gold-light)',
+                      borderColor: 'var(--border-gold)',
+                      background: 'transparent',
+                      borderWidth: '0 0 2px 0',
+                      borderRadius: '0',
+                      width: '100%',
+                      padding: '8px'
+                    }}
+                    value={editAmount}
+                    onChange={(e) => setEditAmount(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Date */}
+              <div className="form-group">
+                <label className="form-label">Transaction Date</label>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)', pointerEvents: 'none' }}>
+                    <Calendar size={16} />
+                  </span>
+                  <input
+                    type="date"
+                    className="form-input"
+                    style={{ width: '100%', paddingLeft: '38px', colorScheme: 'dark' }}
+                    value={editDate}
+                    max={getLocalDateStr()}
+                    onChange={(e) => { if (e.target.value) setEditDate(e.target.value); }}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Note */}
+              <div className="form-group" style={{ marginBottom: '25px' }}>
+                <label className="form-label">Optional Note</label>
+                <input
+                  type="text"
+                  placeholder="e.g. coffee with Sarah"
+                  className="form-input"
+                  style={{ width: '100%' }}
+                  value={editNote}
+                  onChange={(e) => setEditNote(e.target.value)}
+                />
+              </div>
+
+              <button type="submit" className="btn-gold" style={{ width: '100%', borderRadius: '8px' }}>
+                <Check size={18} /> Save Changes
+              </button>
+            </form>
+          )}
+        </div>
       </div>
     </div>
   );
