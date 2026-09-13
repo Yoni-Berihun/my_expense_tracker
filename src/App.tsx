@@ -3,10 +3,11 @@ import { LoggingScreen } from './components/LoggingScreen';
 import { DashboardScreen } from './components/DashboardScreen';
 import { ReportsScreen } from './components/ReportsScreen';
 import { SettingsScreen } from './components/SettingsScreen';
+import { YearlyOverviewScreen } from './components/YearlyOverviewScreen';
 import { LandingPage } from './components/LandingPage';
 import { setupAutoSync, syncData } from './services/sync';
 import { supabase, isSupabaseConfigured } from './services/supabase';
-import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User, Shield } from 'lucide-react';
+import { PlusCircle, BarChart3, FileText, Settings, Coins, RefreshCw, User, Shield, CalendarRange } from 'lucide-react';
 import { type User as SupabaseUser } from '@supabase/supabase-js';
 import { PWAInstallBanner } from './components/PWAInstallBanner';
 import { CreatorCard } from './components/CreatorCard';
@@ -15,7 +16,7 @@ import { AdminPanelScreen } from './components/AdminPanelScreen';
 import './index.css';
 
 function App() {
-  const [activeTab, setActiveTab] = useState<'logging' | 'dashboard' | 'reports' | 'settings' | 'admin'>('logging');
+  const [activeTab, setActiveTab] = useState<'logging' | 'dashboard' | 'reports' | 'yearly' | 'settings' | 'admin'>('logging');
   const [syncStatus, setSyncStatus] = useState<'synced' | 'unsynced' | 'syncing' | 'offline'>('offline');
   const [showLanding, setShowLanding] = useState<boolean>(() => localStorage.getItem('has_visited') === null);
   const [currentUser, setCurrentUser] = useState<SupabaseUser | null>(null);
@@ -89,7 +90,7 @@ function App() {
     return cleanup;
   }, []);
 
-  const handleTabChange = (tab: 'logging' | 'dashboard' | 'reports' | 'settings' | 'admin') => {
+  const handleTabChange = (tab: 'logging' | 'dashboard' | 'reports' | 'yearly' | 'settings' | 'admin') => {
     setActiveTab(tab);
     if (navigator.vibrate) {
       navigator.vibrate(10); // Subtle tick vibration on touch
@@ -128,6 +129,10 @@ function App() {
       />
     );
   }
+
+  // Nav width: 5 tabs non-admin, 6 tabs admin
+  const tabCount = isAdmin ? 6 : 5;
+  const tabW = `${(100 / tabCount).toFixed(1)}%`;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', width: '100%' }}>
@@ -213,6 +218,7 @@ function App() {
         {activeTab === 'logging' && <LoggingScreen onSuccess={handleLoggingSuccess} />}
         {activeTab === 'dashboard' && <DashboardScreen />}
         {activeTab === 'reports' && <ReportsScreen />}
+        {activeTab === 'yearly' && <YearlyOverviewScreen />}
         {activeTab === 'settings' && (
           <SettingsScreen 
             syncStatus={syncStatus} 
@@ -229,7 +235,7 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'logging' ? 'active' : ''}`}
             onClick={() => handleTabChange('logging')}
-            style={{ width: isAdmin ? '20%' : '25%' }}
+            style={{ width: tabW }}
           >
             <PlusCircle />
             <span>Log</span>
@@ -238,7 +244,7 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => handleTabChange('dashboard')}
-            style={{ width: isAdmin ? '20%' : '25%' }}
+            style={{ width: tabW }}
           >
             <BarChart3 />
             <span>Dashboard</span>
@@ -247,16 +253,25 @@ function App() {
           <button 
             className={`nav-item ${activeTab === 'reports' ? 'active' : ''}`}
             onClick={() => handleTabChange('reports')}
-            style={{ width: isAdmin ? '20%' : '25%' }}
+            style={{ width: tabW }}
           >
             <FileText />
             <span>Reports</span>
+          </button>
+
+          <button 
+            className={`nav-item ${activeTab === 'yearly' ? 'active' : ''}`}
+            onClick={() => handleTabChange('yearly')}
+            style={{ width: tabW }}
+          >
+            <CalendarRange />
+            <span>Year</span>
           </button>
           
           <button 
             className={`nav-item ${activeTab === 'settings' ? 'active' : ''}`}
             onClick={() => handleTabChange('settings')}
-            style={{ width: isAdmin ? '20%' : '25%' }}
+            style={{ width: tabW }}
           >
             <Settings />
             <span>Settings</span>
@@ -266,7 +281,7 @@ function App() {
             <button 
               className={`nav-item ${activeTab === 'admin' ? 'active' : ''}`}
               onClick={() => handleTabChange('admin')}
-              style={{ width: isAdmin ? '20%' : '25%' }}
+              style={{ width: tabW }}
             >
               <Shield />
               <span>Admin</span>

@@ -82,6 +82,35 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
     setShowSuggestions(false);
   };
 
+  const handleLogZeroSpend = async () => {
+    try {
+      const categoryId = await getOrCreateCategory('zero_spend');
+      
+      const newExpense = {
+        id: crypto.randomUUID(),
+        amount: 0,
+        category_id: categoryId,
+        description: 'Zero Spend Day',
+        date: new Date().toISOString(),
+        created_at: new Date().toISOString(),
+        updated_at: Date.now(),
+        is_deleted: 0,
+        synced: 0
+      };
+
+      await db.expenses.add(newExpense);
+
+      if (navigator.vibrate) {
+        navigator.vibrate([30, 50, 30]);
+      }
+
+      onSuccess();
+    } catch (err) {
+      console.error('Failed to log zero spend:', err);
+      alert('An error occurred.');
+    }
+  };
+
   const handleLogExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
@@ -171,9 +200,34 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
         <h3 style={{ fontSize: '20px', marginBottom: '10px' }}>Fast Transaction Logging</h3>
         <p className="text-muted" style={{ marginBottom: '24px' }}>Tap below to enter a new expense instantly or log transactions from previous days.</p>
         
-        <button className="btn-gold" style={{ width: '100%', maxWidth: '280px', margin: '0 auto', fontSize: '17px', borderRadius: '30px', padding: '16px' }} onClick={handleOpen}>
+        <button className="btn-gold" style={{ width: '100%', maxWidth: '280px', margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', fontSize: '17px', borderRadius: '30px', padding: '16px' }} onClick={handleOpen}>
           <Plus size={20} /> Add Expense
         </button>
+
+        <div style={{ margin: '16px auto 0', maxWidth: '280px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }} />
+          <span className="text-muted" style={{ fontSize: '11px', whiteSpace: 'nowrap' }}>or</span>
+          <div style={{ flex: 1, height: '1px', background: 'var(--border-glass)' }} />
+        </div>
+
+        <button
+          onClick={handleLogZeroSpend}
+          style={{
+            width: '100%', maxWidth: '280px', margin: '12px auto 0', display: 'flex',
+            alignItems: 'center', justifyContent: 'center', gap: '8px',
+            background: 'rgba(16, 185, 129, 0.08)',
+            border: '1.5px solid rgba(16, 185, 129, 0.4)',
+            color: '#10b981',
+            borderRadius: '30px', padding: '14px', fontSize: '15px', fontWeight: '600',
+            cursor: 'pointer', transition: 'all 0.2s ease',
+            fontFamily: 'var(--font-body)'
+          }}
+          onMouseOver={e => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.16)')}
+          onMouseOut={e => (e.currentTarget.style.background = 'rgba(16, 185, 129, 0.08)')}
+        >
+          <Check size={18} /> Zero Spend Today ✦
+        </button>
+        <p className="text-muted" style={{ fontSize: '11px', marginTop: '8px' }}>Keeps your streak alive without adding spend</p>
       </div>
 
       {/* Quick Add Modal */}
