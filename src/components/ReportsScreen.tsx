@@ -1,10 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
-import { FileDown, Calendar, Tag, Trash2, Pencil, X, Check } from 'lucide-react';
+import { FileDown, Calendar, Tag, Trash2, Pencil, X, Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { LocalExpense } from '../services/db';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { toEthiopian } from '../utils/ethiopianCalendar';
+
+const ET_MONTHS = [
+  'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
+  'Megabit', 'Miazia', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Puagme'
+];
 
 interface jsPDFWithAutoTable extends jsPDF {
   autoTable: (options: {
@@ -22,7 +28,6 @@ interface jsPDFWithAutoTable extends jsPDF {
 
 const getNowTimestamp = () => Date.now();
 
-// Returns YYYY-MM-DD in the user's LOCAL timezone (avoids UTC day-shift)
 const getLocalDateStr = (d: Date = new Date()): string => {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
@@ -32,9 +37,26 @@ const getLocalDateStr = (d: Date = new Date()): string => {
 
 export const ReportsScreen: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
-  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'week' | 'month' | 'last30' | 'custom'>('all');
+  const [dateRangeFilter, setDateRangeFilter] = useState<'all' | 'et_month' | 'week' | 'last30' | 'custom'>('et_month');
   const [customStart, setCustomStart] = useState<string>('');
   const [customEnd, setCustomEnd] = useState<string>('');
+
+  // Ethiopian month navigator state
+  const currentEthDate = useMemo(() => toEthiopian(new Date()), []);
+  const [ethYear, setEthYear] = useState(currentEthDate.year - 1); // default last year
+  const [ethMonth, setEthMonth] = useState(currentEthDate.month);
+
+  const prevEthMonth = () => {
+    if (ethMonth === 1) { setEthMonth(13); setEthYear(y => y - 1); }
+    else setEthMonth(m => m - 1);
+  };
+  const nextEthMonth = () => {
+    const cur = toEthiopian(new Date());
+    if (ethYear > cur.year || (ethYear === cur.year && ethMonth >= cur.month)) return;
+    if (ethMonth === 13) { setEthMonth(1); setEthYear(y => y + 1); }
+    else setEthMonth(m => m + 1);
+  };
+  const isAtCurrentMonth = ethYear === currentEthDate.year && ethMonth === currentEthDate.month;
 
   // Inline edit modal state
   const [editing, setEditing] = useState<LocalExpense | null>(null);
@@ -42,64 +64,51 @@ export const ReportsScreen: React.FC = () => {
   const [editDate, setEditDate] = useState<string>('');
   const [editNote, setEditNote] = useState<string>('');
 
-  // Fetch local data
   const rawExpenses = useLiveQuery(() => db.expenses.where('is_deleted').equals(0).toArray());
   const rawCategories = useLiveQuery(() => db.categories.where('is_deleted').equals(0).toArray());
 
-  // ID to name mapper
   const categoryMap = useMemo(() => {
     const map = new Map<string, string>();
-    const categories = rawCategories || [];
-    categories.forEach(c => map.set(c.id, c.name));
+    (rawCategories || []).forEach(c => map.set(c.id, c.name));
     return map;
   }, [rawCategories]);
 
-  // Apply filters
   const filteredExpenses = useMemo(() => {
     const expenses = rawExpenses || [];
-    let list = [...expenses];
+    let list = categoryFilter !== 'all'
+      ? expenses.filter(e => e.category_id === categoryFilter)
+      : [...expenses];
 
-    // Category Filter
-    if (categoryFilter !== 'all') {
-      list = list.filter(e => e.category_id === categoryFilter);
-    }
-
-    // Date Range Filter
     const now = new Date();
-    let startDate: Date | null = null;
-    let endDate: Date | null = null;
 
-    if (dateRangeFilter === 'week') {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 7);
+    if (dateRangeFilter === 'et_month') {
+      list = list.filter(e => {
+        const et = toEthiopian(new Date(e.date));
+        return et.year === ethYear && et.month === ethMonth;
+      });
+    } else if (dateRangeFilter === 'week') {
+      const start = new Date(); start.setDate(now.getDate() - 7);
+      list = list.filter(e => new Date(e.date) >= start);
     } else if (dateRangeFilter === 'last30') {
-      startDate = new Date();
-      startDate.setDate(now.getDate() - 30);
-    } else if (dateRangeFilter === 'month') {
-      startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+      const start = new Date(); start.setDate(now.getDate() - 30);
+      list = list.filter(e => new Date(e.date) >= start);
     } else if (dateRangeFilter === 'custom') {
-      if (customStart) startDate = new Date(customStart);
+      if (customStart) list = list.filter(e => new Date(e.date) >= new Date(customStart));
       if (customEnd) {
-        endDate = new Date(customEnd);
-        endDate.setHours(23, 59, 59, 999); // End of the day
+        const end = new Date(customEnd); end.setHours(23, 59, 59, 999);
+        list = list.filter(e => new Date(e.date) <= end);
       }
     }
 
-    if (startDate) {
-      list = list.filter(e => new Date(e.date) >= startDate!);
-    }
-    if (endDate) {
-      list = list.filter(e => new Date(e.date) <= endDate!);
-    }
-
-    // Sort by date descending
     return list.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [rawExpenses, categoryFilter, dateRangeFilter, customStart, customEnd]);
+  }, [rawExpenses, categoryFilter, dateRangeFilter, customStart, customEnd, ethYear, ethMonth]);
 
-  // Calculate stats for filtered results
-  const totalAmount = useMemo(() => {
-    return filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
-  }, [filteredExpenses]);
+  // Exclude Zero Spend Days from the financial total
+  const totalAmount = useMemo(() =>
+    filteredExpenses.filter(e => e.amount > 0).reduce((s, e) => s + e.amount, 0),
+    [filteredExpenses]
+  );
+
 
   // Open the edit modal, prefilling fields from the selected expense
   const handleOpenEdit = (exp: LocalExpense) => {
@@ -123,8 +132,8 @@ export const ReportsScreen: React.FC = () => {
     if (!editing) return;
 
     const parsedAmount = parseFloat(editAmount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid amount greater than 0.');
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      alert('Please enter a valid amount (0 or greater).');
       return;
     }
 
@@ -250,22 +259,18 @@ export const ReportsScreen: React.FC = () => {
 
   return (
     <div style={{ width: '100%' }}>
-      {/* Search and filter controls */}
+      {/* Filters Card */}
       <div className="glass-card" style={{ padding: '16px', marginBottom: '20px' }}>
         <h3 style={{ fontSize: '18px', color: 'var(--gold-primary)', marginBottom: '16px', textAlign: 'left' }}>Filters</h3>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {/* Category selection */}
+          {/* Category */}
           <div className="form-group" style={{ margin: '0' }}>
             <label className="form-label">Category</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)' }}><Tag size={16} /></span>
-              <select 
-                className="form-select" 
-                style={{ width: '100%', paddingLeft: '38px' }}
-                value={categoryFilter}
-                onChange={(e) => setCategoryFilter(e.target.value)}
-              >
+              <select className="form-select" style={{ width: '100%', paddingLeft: '38px' }}
+                value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
                 <option value="all">All Categories</option>
                 {(rawCategories || []).map(c => (
                   <option key={c.id} value={c.id}>{c.name}</option>
@@ -274,48 +279,64 @@ export const ReportsScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Date range selection */}
+          {/* Date Range */}
           <div className="form-group" style={{ margin: '0' }}>
             <label className="form-label">Date Range</label>
             <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
               <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)' }}><Calendar size={16} /></span>
-              <select 
-                className="form-select" 
-                style={{ width: '100%', paddingLeft: '38px' }}
-                value={dateRangeFilter}
-                onChange={(e) => setDateRangeFilter(e.target.value as typeof dateRangeFilter)}
-              >
+              <select className="form-select" style={{ width: '100%', paddingLeft: '38px' }}
+                value={dateRangeFilter} onChange={e => setDateRangeFilter(e.target.value as typeof dateRangeFilter)}>
+                <option value="et_month">Ethiopian Month</option>
                 <option value="all">All Time</option>
                 <option value="week">Past Week</option>
                 <option value="last30">Past 30 Days</option>
-                <option value="month">This Month</option>
                 <option value="custom">Custom Date Range</option>
               </select>
             </div>
           </div>
 
-          {/* Custom Date Inputs (Conditional) */}
+          {/* Ethiopian Month Navigator (shown when et_month selected) */}
+          {dateRangeFilter === 'et_month' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '14px', padding: '8px 0' }}>
+              <button onClick={prevEthMonth} style={{
+                background: 'var(--bg-input)', border: '1px solid var(--border-glass)', borderRadius: '50%',
+                width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', color: 'var(--text-primary)'
+              }}>
+                <ChevronLeft size={16} />
+              </button>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ margin: 0, fontSize: '16px', fontWeight: '700', background: 'var(--gold-gradient)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                  {ET_MONTHS[ethMonth - 1]}
+                </p>
+                <span className="text-muted" style={{ fontSize: '11px' }}>
+                  ET {ethYear} · {ethYear === currentEthDate.year - 1 ? 'Last Year' : ethYear === currentEthDate.year ? 'This Year' : String(ethYear)}
+                </span>
+              </div>
+              <button onClick={nextEthMonth} disabled={isAtCurrentMonth} style={{
+                background: 'var(--bg-input)', border: '1px solid var(--border-glass)', borderRadius: '50%',
+                width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: isAtCurrentMonth ? 'not-allowed' : 'pointer',
+                color: isAtCurrentMonth ? 'var(--text-muted)' : 'var(--text-primary)',
+                opacity: isAtCurrentMonth ? 0.4 : 1
+              }}>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
+
+          {/* Custom Date Inputs */}
           {dateRangeFilter === 'custom' && (
             <div style={{ display: 'flex', gap: '10px', marginTop: '4px' }}>
               <div className="form-group" style={{ flex: 1, margin: '0' }}>
                 <span className="text-muted" style={{ fontSize: '11px' }}>Start Date</span>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '14px' }}
-                  value={customStart}
-                  onChange={(e) => setCustomStart(e.target.value)}
-                />
+                <input type="date" className="form-input" style={{ width: '100%', padding: '8px 12px', fontSize: '14px' }}
+                  value={customStart} onChange={e => setCustomStart(e.target.value)} />
               </div>
               <div className="form-group" style={{ flex: 1, margin: '0' }}>
                 <span className="text-muted" style={{ fontSize: '11px' }}>End Date</span>
-                <input 
-                  type="date" 
-                  className="form-input" 
-                  style={{ width: '100%', padding: '8px 12px', fontSize: '14px' }}
-                  value={customEnd}
-                  onChange={(e) => setCustomEnd(e.target.value)}
-                />
+                <input type="date" className="form-input" style={{ width: '100%', padding: '8px 12px', fontSize: '14px' }}
+                  value={customEnd} onChange={e => setCustomEnd(e.target.value)} />
               </div>
             </div>
           )}
