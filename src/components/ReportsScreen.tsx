@@ -37,7 +37,7 @@ export const ReportsScreen: React.FC = () => {
 
   // Ethiopian month navigator state
   const currentEthDate = useMemo(() => toEthiopian(new Date()), []);
-  const [ethYear, setEthYear] = useState(currentEthDate.year - 1); // default last year
+  const [ethYear, setEthYear] = useState(currentEthDate.year);
   const [ethMonth, setEthMonth] = useState(currentEthDate.month);
 
   const prevEthMonth = () => {

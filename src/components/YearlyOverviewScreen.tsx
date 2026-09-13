@@ -11,8 +11,6 @@ const ET_MONTHS = [
   'Megabit', 'Miazia', 'Ginbot', 'Sene', 'Hamle', 'Nehase', 'Puagme'
 ];
 
-const getCurrentEthiopianYear = (): number => toEthiopian(new Date()).year;
-
 interface MonthBreakdown {
   ethMonthIndex: number;
   ethMonthName: string;
@@ -31,9 +29,10 @@ interface YearSummary {
 
 export const YearlyOverviewScreen: React.FC = () => {
   const [expandedMonth, setExpandedMonth] = useState<number | null>(null);
-  const currentEthYear = useMemo(() => getCurrentEthiopianYear(), []);
-  // Default to last year if current year has no data yet (first few days of new year)
-  const [viewingYear, setViewingYear] = useState<number>(currentEthYear - 1);
+  const currentEthYear = useMemo(() => toEthiopian(new Date()).year, []);
+
+  // The Ethiopian year currently being viewed
+  const [viewingYear, setViewingYear] = useState<number>(currentEthYear);
 
   const allExpenses = useLiveQuery(() =>
     db.expenses.where('is_deleted').equals(0).toArray()

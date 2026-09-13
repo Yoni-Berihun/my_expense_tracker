@@ -66,7 +66,7 @@ export const DashboardScreen: React.FC = () => {
 
   // Ethiopian month/year selector (used when range === 'et_month')
   const currentEthDate = useMemo(() => toEthiopian(new Date()), []);
-  const [ethYear, setEthYear] = useState(currentEthDate.year - 1); // default to last year where data lives
+  const [ethYear, setEthYear] = useState(currentEthDate.year);
   const [ethMonth, setEthMonth] = useState(currentEthDate.month);
 
   // Load all expenses & categories from Dexie

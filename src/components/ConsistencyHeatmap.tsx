@@ -1,19 +1,13 @@
 import React, { useMemo } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
-
-// Returns "YYYY-MM-DD" in local time (no UTC offset shift)
-const toLocalDateStr = (d: Date): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+import { toEthiopian } from '../utils/ethiopianCalendar';
+import { getLocalDateStr } from '../utils/dateHelpers';
 
 interface DayData {
   dateStr: string;
   totalAmount: number;
-  isZeroSpend: boolean; // logged but zero‑amount
+  isZeroSpend: boolean; // logged but zero amount
   isTracked: boolean;   // any record exists for this day
 }
 
@@ -27,7 +21,7 @@ export const ConsistencyHeatmap: React.FC = () => {
   const dayMap = useMemo(() => {
     const map = new Map<string, { total: number; hasZero: boolean }>();
     for (const exp of allExpenses ?? []) {
-      const d = toLocalDateStr(new Date(exp.date));
+      const d = getLocalDateStr(new Date(exp.date));
       const existing = map.get(d) ?? { total: 0, hasZero: false };
       map.set(d, {
         total: existing.total + exp.amount,
@@ -48,7 +42,7 @@ export const ConsistencyHeatmap: React.FC = () => {
     for (let i = 0; i <= 364; i++) {
       const d = new Date(startDate);
       d.setDate(startDate.getDate() + i);
-      const dateStr = toLocalDateStr(d);
+      const dateStr = getLocalDateStr(d);
       const record = dayMap.get(dateStr);
       result.push({
         dateStr,
@@ -87,20 +81,19 @@ export const ConsistencyHeatmap: React.FC = () => {
     const labels: { label: string; col: number }[] = [];
     let lastMonth = -1;
     weeks.forEach((week, colIdx) => {
-      const firstDay = new Date(week[0].dateStr);
-      const m = firstDay.getMonth();
-      if (m !== lastMonth) {
+      const et = toEthiopian(new Date(week[0].dateStr + 'T12:00:00'));
+      if (et.month !== lastMonth) {
         labels.push({
-          label: firstDay.toLocaleString('default', { month: 'short' }),
+          label: et.monthName.slice(0, 3), // e.g. "Mes", "Tik"
           col: colIdx
         });
-        lastMonth = m;
+        lastMonth = et.month;
       }
     });
     return labels;
   }, [weeks]);
 
-  const todayStr = toLocalDateStr(new Date());
+  const todayStr = getLocalDateStr(new Date());
 
   return (
     <div className="glass-card" style={{ padding: '20px', overflowX: 'auto' }}>
@@ -149,22 +142,26 @@ export const ConsistencyHeatmap: React.FC = () => {
 
         {weeks.map((week, wi) => (
           <div key={wi} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            {week.map((day) => (
-              <div
-                key={day.dateStr}
-                title={`${day.dateStr}: ${day.isZeroSpend ? 'Zero Spend ✦' : day.isTracked ? `${day.totalAmount.toFixed(0)} ETB` : 'No data'}`}
-                style={{
-                  width: 10, height: 10,
-                  borderRadius: 2,
-                  background: getCellColor(day),
-                  border: day.dateStr === todayStr ? '1px solid var(--gold-primary)' : '1px solid transparent',
-                  transition: 'transform 0.1s',
-                  cursor: day.isTracked ? 'pointer' : 'default',
-                }}
-                onMouseOver={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.5)'; }}
-                onMouseOut={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
-              />
-            ))}
+            {week.map((day) => {
+              const et = toEthiopian(new Date(day.dateStr + 'T12:00:00'));
+              const displayDate = `${et.monthName} ${et.day}, ${et.year} ET`;
+              return (
+                <div
+                  key={day.dateStr}
+                  title={`${displayDate}: ${day.isZeroSpend ? 'Zero Spend ✦' : day.isTracked ? `${day.totalAmount.toFixed(0)} ETB` : 'No data'}`}
+                  style={{
+                    width: 10, height: 10,
+                    borderRadius: 2,
+                    background: getCellColor(day),
+                    border: day.dateStr === todayStr ? '1px solid var(--gold-primary)' : '1px solid transparent',
+                    transition: 'transform 0.1s',
+                    cursor: day.isTracked ? 'pointer' : 'default',
+                  }}
+                  onMouseOver={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1.5)'; }}
+                  onMouseOut={e => { (e.currentTarget as HTMLDivElement).style.transform = 'scale(1)'; }}
+                />
+              );
+            })}
           </div>
         ))}
       </div>
