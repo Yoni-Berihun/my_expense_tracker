@@ -4,18 +4,11 @@ import { db } from '../services/db';
 import { getOrCreateCategory } from '../services/sync';
 import { Plus, X, Tag, FileText, Check, Wallet, Calendar } from 'lucide-react';
 import { toEthiopian } from '../utils/ethiopianCalendar';
+import { getLocalDateStr } from '../utils/dateHelpers';
 
 interface LoggingScreenProps {
   onSuccess: () => void;
 }
-
-// Returns YYYY-MM-DD in the user's LOCAL timezone (not UTC, to avoid day shifts)
-const getLocalDateStr = (d: Date = new Date()): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
 
 const FIXED_CATEGORIES = [
   { name: 'food', icon: '🍔' },
@@ -115,8 +108,8 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
   const handleLogExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      alert('Please enter a valid amount greater than 0.');
+    if (isNaN(parsedAmount) || parsedAmount < 0) {
+      alert('Please enter a valid amount (0 or greater).');
       return;
     }
 
@@ -175,9 +168,9 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
 
   // Quick stats computed for today
   const todayExpenses = useLiveQuery(async () => {
-    const todayStr = new Date().toISOString().slice(0, 10);
+    const todayStr = getLocalDateStr();
     const exps = await db.expenses.where('is_deleted').equals(0).toArray();
-    return exps.filter(e => e.date.slice(0, 10) === todayStr);
+    return exps.filter(e => getLocalDateStr(new Date(e.date)) === todayStr);
   });
 
   const todayTotal = todayExpenses?.reduce((acc, exp) => acc + exp.amount, 0) || 0;

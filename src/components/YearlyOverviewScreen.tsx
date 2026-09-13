@@ -4,6 +4,7 @@ import { db } from '../services/db';
 import { toEthiopian } from '../utils/ethiopianCalendar';
 import { ChevronDown, ChevronRight, Star, ChevronLeft, ChevronRight as ChevronRightIcon } from 'lucide-react';
 import { ConsistencyHeatmap } from './ConsistencyHeatmap';
+import { getLocalDateStr } from '../utils/dateHelpers';
 
 const ET_MONTHS = [
   'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
@@ -67,8 +68,8 @@ export const YearlyOverviewScreen: React.FC = () => {
         const catId = exp.category_id ?? 'uncategorized';
         catMap.set(catId, (catMap.get(catId) ?? 0) + exp.amount);
         monthMap.set(mIdx, catMap);
-      } else if (exp.description === 'Zero Spend Day') {
-        const dateStr = exp.date.slice(0, 10);
+      } else if (exp.amount === 0) {
+        const dateStr = getLocalDateStr(new Date(exp.date));
         const zeroSet = zeroByMonth.get(mIdx) ?? new Set<string>();
         zeroSet.add(dateStr);
         zeroByMonth.set(mIdx, zeroSet);
@@ -97,13 +98,13 @@ export const YearlyOverviewScreen: React.FC = () => {
     });
 
     // Streak calculation (across all years, not year-scoped)
-    const trackedDates = new Set(exps.map(e => e.date.slice(0, 10)));
+    const trackedDates = new Set(exps.map(e => getLocalDateStr(new Date(e.date))));
     let currentStreak = 0;
     let longestStreak = 0;
     let tempStreak = 0;
     const cursor = new Date();
     for (let i = 0; i <= 365; i++) {
-      const ds = cursor.toISOString().slice(0, 10);
+      const ds = getLocalDateStr(cursor);
       if (trackedDates.has(ds)) {
         if (i === 0 || currentStreak > 0) currentStreak++;
         tempStreak++;

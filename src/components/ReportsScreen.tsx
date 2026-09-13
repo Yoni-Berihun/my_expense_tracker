@@ -27,13 +27,7 @@ interface jsPDFWithAutoTable extends jsPDF {
 }
 
 const getNowTimestamp = () => Date.now();
-
-const getLocalDateStr = (d: Date = new Date()): string => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
-};
+import { getLocalDateStr } from '../utils/dateHelpers';
 
 export const ReportsScreen: React.FC = () => {
   const [categoryFilter, setCategoryFilter] = useState<string>('all');

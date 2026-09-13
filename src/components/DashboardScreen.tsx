@@ -16,6 +16,7 @@ import {
 } from 'recharts';
 import { TrendingUp, Award, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { toEthiopian } from '../utils/ethiopianCalendar';
+import { getLocalDateStr } from '../utils/dateHelpers';
 
 const ET_MONTHS = [
   'Meskerem', 'Tikimt', 'Hidar', 'Tahsas', 'Tir', 'Yekatit',
@@ -103,7 +104,7 @@ export const DashboardScreen: React.FC = () => {
 
   const avgDailySpent = useMemo(() => {
     if (filteredExpenses.length === 0) return 0;
-    const uniqueDays = new Set(filteredExpenses.map(e => e.date.slice(0, 10))).size;
+    const uniqueDays = new Set(filteredExpenses.map(e => getLocalDateStr(new Date(e.date)))).size;
     return uniqueDays > 0 ? totalSpent / uniqueDays : totalSpent;
   }, [filteredExpenses, totalSpent]);
 
@@ -127,18 +128,18 @@ export const DashboardScreen: React.FC = () => {
     if (range === 'et_month') {
       const { start, end } = ethMonthToGregorianRange(ethYear, ethMonth);
       for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        dailyMap[d.toISOString().slice(0, 10)] = 0;
+        dailyMap[getLocalDateStr(d)] = 0;
       }
     } else {
       const days = range === '7days' ? 7 : 30;
       for (let i = days - 1; i >= 0; i--) {
         const d = new Date(); d.setDate(now.getDate() - i);
-        dailyMap[d.toISOString().slice(0, 10)] = 0;
+        dailyMap[getLocalDateStr(d)] = 0;
       }
     }
 
     filteredExpenses.forEach(e => {
-      const ds = e.date.slice(0, 10);
+      const ds = getLocalDateStr(new Date(e.date));
       if (dailyMap[ds] !== undefined) dailyMap[ds] += e.amount;
     });
 
