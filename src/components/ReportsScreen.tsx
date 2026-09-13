@@ -463,6 +463,24 @@ export const ReportsScreen: React.FC = () => {
               {/* Date */}
               <div className="form-group">
                 <label className="form-label">Transaction Date</label>
+                {editDate && (() => {
+                  const et = toEthiopian(new Date(editDate + 'T12:00:00'));
+                  return (
+                    <div style={{
+                      textAlign: 'center', padding: '8px 0 4px',
+                      background: 'rgba(212,175,55,0.06)', borderRadius: '8px',
+                      border: '1px solid rgba(212,175,55,0.2)', marginBottom: '8px'
+                    }}>
+                      <span style={{
+                        fontSize: '16px', fontWeight: '800',
+                        background: 'var(--gold-gradient)',
+                        WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                      }}>
+                        {et.monthName} {et.day}, {et.year} ET
+                      </span>
+                    </div>
+                  );
+                })()}
                 <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                   <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)', pointerEvents: 'none' }}>
                     <Calendar size={16} />

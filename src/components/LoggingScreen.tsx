@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../services/db';
 import { getOrCreateCategory } from '../services/sync';
 import { Plus, X, Tag, FileText, Check, Wallet, Calendar } from 'lucide-react';
+import { toEthiopian } from '../utils/ethiopianCalendar';
 
 interface LoggingScreenProps {
   onSuccess: () => void;
@@ -327,26 +328,62 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
               )}
             </div>
 
-            {/* Transaction Date: quick shortcuts + full calendar picker */}
+            {/* Transaction Date — Ethiopian Calendar display */}
             <div className="form-group">
               <label className="form-label">Transaction Date</label>
-              <div className="chip-container">
-                <button
-                  type="button"
-                  className={`chip ${dateStr === getLocalDateStr() ? 'active' : ''}`}
-                  onClick={() => setDateStr(getLocalDateStr())}
-                >
-                  Today
-                </button>
-                <button
-                  type="button"
-                  className={`chip ${dateStr === getLocalDateStr(new Date(Date.now() - 864e5)) ? 'active' : ''}`}
-                  onClick={() => setDateStr(getLocalDateStr(new Date(Date.now() - 864e5)))}
-                >
-                  Yesterday
-                </button>
+
+              {/* Ethiopian date display — updates live as user picks */}
+              {(() => {
+                const et = toEthiopian(new Date(dateStr + 'T12:00:00'));
+                return (
+                  <div style={{
+                    textAlign: 'center', padding: '10px 0 6px',
+                    background: 'rgba(212,175,55,0.06)',
+                    borderRadius: '10px', marginBottom: '10px',
+                    border: '1px solid rgba(212,175,55,0.2)'
+                  }}>
+                    <span style={{
+                      fontSize: '20px', fontWeight: '800',
+                      background: 'var(--gold-gradient)',
+                      WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'
+                    }}>
+                      {et.monthName} {et.day}, {et.year} ET
+                    </span>
+                    <p className="text-muted" style={{ fontSize: '11px', margin: '2px 0 0' }}>
+                      {new Date(dateStr + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+                    </p>
+                  </div>
+                );
+              })()}
+
+              {/* Quick day buttons */}
+              <div className="chip-container" style={{ marginBottom: '8px' }}>
+                {[
+                  { label: 'Today', offset: 0 },
+                  { label: 'Yesterday', offset: 1 },
+                  { label: '2 Days Ago', offset: 2 },
+                  { label: '3 Days Ago', offset: 3 },
+                ].map(({ label, offset }) => {
+                  const d = new Date(); d.setDate(d.getDate() - offset);
+                  const ds = getLocalDateStr(d);
+                  const et = toEthiopian(new Date(ds + 'T12:00:00'));
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`chip ${dateStr === ds ? 'active' : ''}`}
+                      onClick={() => setDateStr(ds)}
+                      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1px', padding: '6px 10px' }}
+                    >
+                      <span style={{ fontSize: '12px' }}>{label}</span>
+                      <span style={{ fontSize: '10px', opacity: 0.75 }}>{et.monthName.slice(0, 3)} {et.day}</span>
+                    </button>
+                  );
+                })}
               </div>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center', marginTop: '4px' }}>
+
+              {/* Full date picker (Gregorian input — required by browser, hidden label) */}
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
                 <span style={{ position: 'absolute', left: '12px', color: 'var(--gold-primary)', pointerEvents: 'none' }}>
                   <Calendar size={16} />
                 </span>
@@ -356,14 +393,12 @@ export const LoggingScreen: React.FC<LoggingScreenProps> = ({ onSuccess }) => {
                   style={{ width: '100%', paddingLeft: '38px', colorScheme: 'dark' }}
                   value={dateStr}
                   max={getLocalDateStr()}
-                  onChange={(e) => {
-                    // Ignore clearing; keep a valid day selected
-                    if (e.target.value) setDateStr(e.target.value);
-                  }}
+                  onChange={(e) => { if (e.target.value) setDateStr(e.target.value); }}
                   required
                 />
               </div>
             </div>
+
 
             {/* Notes input */}
             <div className="form-group" style={{ marginBottom: '25px' }}>
